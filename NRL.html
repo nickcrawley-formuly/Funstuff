@@ -1,0 +1,1501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="NRL 2026">
+  <meta name="theme-color" content="#0d2818">
+  <title>NRL 2026 — Smash ya mates!</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 220'><path d='M16 8L184 8L184 132Q184 182 100 214Q16 182 16 132Z' fill='%2300DC00'/><path d='M28 100L172 100L172 128Q172 172 100 200Q28 172 28 128Z' fill='%230d2818'/><path d='M28 100L100 140L172 100L172 115L100 155L28 115Z' fill='%2300DC00'/><path d='M28 122L100 162L172 122L172 137L100 177L28 137Z' fill='%2300DC00'/><text x='100' y='80' text-anchor='middle' fill='%230d2818' font-size='56' font-weight='900' font-family='Arial Black'>NRL</text></svg>">
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { margin: 0; padding: 0; background: #0d2818; overflow-x: hidden; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: #2a4a35; border-radius: 4px; }
+    #root { min-height: 100vh; }
+  </style>
+  <!-- React -->
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <!-- Recharts (needs prop-types) -->
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.1.16/Recharts.min.js"></script>
+  <!-- Babel for JSX -->
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+    // Register service worker for PWA / Add to Home Screen
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
+    // Debug: check globals loaded
+    console.log('React:', typeof React !== 'undefined' ? 'OK' : 'MISSING');
+    console.log('ReactDOM:', typeof ReactDOM !== 'undefined' ? 'OK' : 'MISSING');
+    console.log('PropTypes:', typeof PropTypes !== 'undefined' ? 'OK' : 'MISSING');
+    console.log('Recharts:', typeof Recharts !== 'undefined' ? 'OK' : 'MISSING');
+  </script>
+  <script type="text/babel">
+    // Destructure from globals
+    const { useState, useEffect } = React;
+    const { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } = Recharts;
+
+
+// ── NRL TEAM DATA ──
+const NRL_TEAMS = {
+  BRO: { name: "Broncos", short: "BRO", bg: "#6B0F33", fg: "#D4A843" },
+  BUL: { name: "Bulldogs", short: "BUL", bg: "#0054A4", fg: "#fff", url: "https://www.bulldogs.com.au" },
+  COW: { name: "Cowboys", short: "COW", bg: "#002B5C", fg: "#FFD100" },
+  DOL: { name: "Dolphins", short: "DOL", bg: "#C8102E", fg: "#fff" },
+  DRA: { name: "Dragons", short: "DRA", bg: "#E31837", fg: "#fff", url: "https://www.dragons.com.au" },
+  EEL: { name: "Eels", short: "EEL", bg: "#005DB7", fg: "#FFD100" },
+  KNI: { name: "Knights", short: "KNI", bg: "#003B71", fg: "#E31837" },
+  PAN: { name: "Panthers", short: "PAN", bg: "#221F1F", fg: "#FF69B4" },
+  RAB: { name: "Rabbitohs", short: "RAB", bg: "#003831", fg: "#E31837" },
+  RAI: { name: "Raiders", short: "RAI", bg: "#00843D", fg: "#fff" },
+  ROO: { name: "Roosters", short: "ROO", bg: "#003D6B", fg: "#E31837" },
+  SEA: { name: "Sea Eagles", short: "SEA", bg: "#6B0031", fg: "#fff", url: "https://www.seaeagles.com.au" },
+  SHA: { name: "Sharks", short: "SHA", bg: "#0082CA", fg: "#fff" },
+  STO: { name: "Storm", short: "STO", bg: "#4B2D84", fg: "#FFD100" },
+  TIT: { name: "Titans", short: "TIT", bg: "#0E2240", fg: "#CDA34F" },
+  WAR: { name: "Warriors", short: "WAR", bg: "#27251F", fg: "#C8C8C8" },
+  TIG: { name: "Tigers", short: "TIG", bg: "#F37021", fg: "#000", url: "https://www.weststigers.com.au" },
+};
+
+const FIXTURES = {
+  1: [["KNI","COW"],["BUL","DRA"],["STO","EEL"],["WAR","ROO"],["BRO","PAN"],["SHA","TIT"],["SEA","RAI"],["DOL","RAB"]],
+  2: [["BRO","EEL"],["WAR","RAI"],["ROO","RAB"],["TIG","COW"],["DRA","STO"],["PAN","SHA"],["SEA","KNI"],["DOL","TIT"]],
+  3: [["RAI","BUL"],["ROO","PAN"],["STO","BRO"],["KNI","WAR"],["SHA","DOL"],["RAB","TIG"],["EEL","DRA"],["COW","TIT"]],
+  4: [["SEA","ROO"],["WAR","TIG"],["BRO","DOL"],["BUL","KNI"],["PAN","EEL"],["COW","STO"],["RAI","SHA"],["TIT","DRA"]],
+  5: [["DOL","SEA"],["RAB","BUL"],["PAN","STO"],["DRA","COW"],["TIT","BRO"],["SHA","WAR"],["KNI","RAI"],["EEL","TIG"]],
+  6: [["BUL","PAN"],["DRA","SEA"],["BRO","COW"],["RAB","RAI"],["SHA","ROO"],["STO","WAR"],["EEL","TIT"],["TIG","KNI"]],
+  7: [["COW","SEA"],["RAI","STO"],["DOL","PAN"],["WAR","TIT"],["RAB","DRA"],["TIG","BRO"],["ROO","KNI"],["EEL","BUL"]],
+  8: [["TIG","RAI"],["COW","SHA"],["BRO","BUL"],["DRA","ROO"],["WAR","DOL"],["STO","RAB"],["KNI","PAN"],["SEA","EEL"]],
+  9: [["BUL","COW"],["DOL","STO"],["TIT","RAI"],["EEL","WAR"],["ROO","BRO"],["KNI","RAB"],["SHA","TIG"],["PAN","SEA"]],
+  10: [["DOL","BUL"],["ROO","TIT"],["COW","EEL"],["DRA","KNI"],["RAB","SHA"],["SEA","BRO"],["STO","TIG"],["RAI","PAN"]],
+  11: [["SHA","BUL"],["RAB","DOL"],["TIG","SEA"],["ROO","COW"],["EEL","STO"],["TIT","KNI"],["WAR","BRO"],["PAN","DRA"]],
+  12: [["RAI","DOL"],["BUL","STO"],["DRA","WAR"],["SEA","TIT"],["COW","RAB"]],
+  13: [["SHA","SEA"],["KNI","EEL"],["TIG","BUL"],["STO","ROO"],["BRO","DRA"],["RAI","COW"],["PAN","WAR"]],
+  14: [["SEA","RAB"],["STO","KNI"],["RAI","ROO"],["COW","DOL"],["BRO","TIT"],["TIG","PAN"],["SHA","DRA"],["BUL","EEL"]],
+  15: [["RAB","BRO"],["DOL","ROO"],["WAR","SHA"],["EEL","RAI"],["TIG","TIT"]],
+  16: [["KNI","DRA"],["TIG","DOL"],["TIT","PAN"],["BUL","SEA"],["WAR","COW"],["STO","RAI"],["ROO","SHA"]],
+  17: [["EEL","RAB"],["TIT","BUL"],["BRO","ROO"],["DOL","WAR"],["COW","PAN"],["SEA","STO"],["RAI","DRA"],["KNI","TIG"]],
+  18: [["PAN","RAB"],["DRA","TIG"],["BRO","SHA"],["EEL","SEA"],["KNI","DOL"]],
+  19: [["TIG","WAR"],["DOL","SHA"],["BUL","RAI"],["ROO","EEL"],["RAB","KNI"],["SEA","COW"],["STO","TIT"]],
+  20: [["PAN","BRO"],["SHA","KNI"],["ROO","STO"],["RAI","RAB"],["WAR","DRA"],["BUL","TIG"],["TIT","SEA"],["DOL","COW"]],
+  21: [["EEL","PAN"],["KNI","ROO"],["RAB","STO"],["RAI","TIG"],["BUL","WAR"],["COW","BRO"],["DRA","TIT"],["SEA","SHA"]],
+  22: [["COW","ROO"],["DRA","DOL"],["STO","BUL"],["TIT","WAR"],["PAN","RAI"],["BRO","KNI"],["SHA","RAB"],["TIG","EEL"]],
+  23: [["TIT","COW"],["WAR","PAN"],["ROO","BUL"],["STO","SEA"],["DOL","BRO"],["RAB","EEL"],["RAI","KNI"],["DRA","SHA"]],
+  24: [["PAN","ROO"],["SEA","DOL"],["BUL","RAB"],["SHA","RAI"],["EEL","COW"],["BRO","WAR"],["KNI","TIT"],["TIG","DRA"]],
+  25: [["STO","PAN"],["RAI","BRO"],["DOL","EEL"],["KNI","SEA"],["RAB","WAR"],["DRA","BUL"],["TIT","SHA"],["ROO","TIG"]],
+  26: [["BRO","STO"],["SEA","DRA"],["PAN","BUL"],["TIT","RAB"],["ROO","DOL"],["COW","TIG"],["WAR","KNI"],["EEL","SHA"]],
+  27: [["BUL","BRO"],["TIT","DOL"],["RAB","ROO"],["WAR","SEA"],["COW","RAI"],["SHA","STO"],["DRA","EEL"],["PAN","TIG"]],
+};
+
+// ── MATCH KICKOFF TIMES ──
+// Each round maps match index to [dayOfWeek, hour, minute] in AEST
+// Typical NRL schedule: Thu 8pm, Fri 6pm/8pm, Sat 3pm/5:30pm/7:35pm, Sun 2pm/4:05pm
+const ROUND_START_DATES = {
+  1: "2026-03-01", 2: "2026-03-08", 3: "2026-03-15", 4: "2026-03-22",
+  5: "2026-03-29", 6: "2026-04-05", 7: "2026-04-12", 8: "2026-04-19",
+  9: "2026-04-26", 10: "2026-05-03", 11: "2026-05-10", 12: "2026-05-17",
+  13: "2026-05-24", 14: "2026-05-31", 15: "2026-06-07", 16: "2026-06-14",
+  17: "2026-06-21", 18: "2026-06-28", 19: "2026-07-05", 20: "2026-07-12",
+  21: "2026-07-19", 22: "2026-07-26", 23: "2026-08-02", 24: "2026-08-09",
+  25: "2026-08-16", 26: "2026-08-23", 27: "2026-08-30",
+};
+
+// Match slot offsets: [dayOffset, hour, minute] from the round's start date (Thursday)
+const MATCH_SLOTS = {
+  8: [ // 8-game rounds
+    [0, 20, 0],   // Thu 8:00pm
+    [1, 18, 0],   // Fri 6:00pm
+    [1, 20, 0],   // Fri 8:00pm
+    [2, 15, 0],   // Sat 3:00pm
+    [2, 17, 30],  // Sat 5:30pm
+    [2, 19, 35],  // Sat 7:35pm
+    [3, 14, 0],   // Sun 2:00pm
+    [3, 16, 5],   // Sun 4:05pm
+  ],
+  7: [
+    [0, 20, 0], [1, 18, 0], [1, 20, 0],
+    [2, 15, 0], [2, 17, 30], [2, 19, 35],
+    [3, 16, 5],
+  ],
+  5: [
+    [1, 18, 0], [1, 20, 0],
+    [2, 15, 0], [2, 17, 30],
+    [3, 16, 5],
+  ],
+};
+
+function getMatchKickoff(round, matchIdx) {
+  const startStr = ROUND_START_DATES[round];
+  if (!startStr) return null;
+  const matches = FIXTURES[round] || [];
+  const slots = MATCH_SLOTS[matches.length] || MATCH_SLOTS[8];
+  const slot = slots[matchIdx];
+  if (!slot) return null;
+  const [dayOff, hr, min] = slot;
+  // Parse start date and add offset — dates are in AEST (UTC+11 for DST, UTC+10 standard)
+  const base = new Date(startStr + "T00:00:00+11:00");
+  base.setDate(base.getDate() + dayOff);
+  base.setHours(hr, min, 0, 0);
+  return base;
+}
+
+function getMatchStatus(round, matchIdx) {
+  const kickoff = getMatchKickoff(round, matchIdx);
+  if (!kickoff) return { status: "upcoming", locked: false, kickoff: null };
+  const now = new Date();
+  const lockTime = new Date(kickoff.getTime() - 60 * 60 * 1000); // 1hr before
+  const endTime = new Date(kickoff.getTime() + 100 * 60 * 1000); // ~100min after kickoff
+  if (now >= kickoff && now <= endTime) return { status: "live", locked: true, kickoff };
+  if (now >= lockTime) return { status: "locked", locked: true, kickoff };
+  return { status: "upcoming", locked: false, kickoff };
+}
+
+function formatKickoff(kickoff) {
+  if (!kickoff) return "";
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const d = days[kickoff.getDay()];
+  let h = kickoff.getHours();
+  const m = kickoff.getMinutes();
+  const ampm = h >= 12 ? "pm" : "am";
+  h = h % 12 || 12;
+  return `${d} ${h}${m ? ":" + String(m).padStart(2, "0") : ""}${ampm}`;
+}
+
+// Countdown banner — shows hours until picks lock for current round
+function RoundCountdown({ round, appState }) {
+  if (!round || !FIXTURES[round]) return null;
+  // If round is already finalised, no countdown needed
+  if (appState?.weeklyResults?.[round]) return null;
+  // Find the earliest kickoff in this round (first match to lock)
+  const matches = FIXTURES[round] || [];
+  let earliestLock = null;
+  for (let i = 0; i < matches.length; i++) {
+    const kickoff = getMatchKickoff(round, i);
+    if (kickoff) {
+      const lock = new Date(kickoff.getTime() - 60 * 60 * 1000);
+      if (!earliestLock || lock < earliestLock) earliestLock = lock;
+    }
+  }
+  if (!earliestLock) return null;
+  const now = new Date();
+  const diff = earliestLock.getTime() - now.getTime();
+  // Already locked
+  if (diff <= 0) {
+    return (
+      <div style={{ background: "rgba(231, 76, 60, 0.15)", padding: "6px 16px", textAlign: "center", fontSize: 12, fontWeight: 700, color: "#e74c3c", borderBottom: "1px solid rgba(231, 76, 60, 0.3)" }}>
+        🔒 Round {round} locked
+      </div>
+    );
+  }
+  const hours = Math.round(diff / (1000 * 60 * 60));
+  const days = Math.floor(hours / 24);
+  let timeStr;
+  if (hours < 1) {
+    timeStr = "less than an hour";
+  } else if (hours < 24) {
+    timeStr = `${hours} hour${hours !== 1 ? "s" : ""}`;
+  } else {
+    const remHours = hours % 24;
+    timeStr = `${days} day${days !== 1 ? "s" : ""}${remHours > 0 ? ` ${remHours}hr${remHours !== 1 ? "s" : ""}` : ""}`;
+  }
+  const urgent = hours <= 24;
+  return (
+    <div style={{ background: urgent ? "rgba(231, 76, 60, 0.1)" : "rgba(0, 220, 0, 0.08)", padding: "6px 16px", textAlign: "center", fontSize: 12, fontWeight: 700, color: urgent ? "#e74c3c" : "#00DC00", borderBottom: `1px solid ${urgent ? "rgba(231, 76, 60, 0.2)" : "rgba(0, 220, 0, 0.15)"}` }}>
+      {urgent ? "⏰" : "🏉"} Round {round} locks in {timeStr} — get your picks in!
+    </div>
+  );
+}
+
+const POINTS_MAP = { 1: 10, 2: 5, 3: 2, 4: 0 };
+const STORAGE_KEY = "nrl-2026-v1";
+const DEFAULT_PASSWORD = "1234";
+
+const PLAYER_NAMES = ["Princess Sparkey", "D.I. Banks", "Mez", "Nick"];
+const DEFAULT_AVATARS = ["TIG", "DRA", "SEA", "BUL"];
+
+// Renders avatar — either a team badge or an emoji fallback
+function AvatarDisplay({ avatar, size = 28 }) {
+  if (NRL_TEAMS[avatar]) {
+    return <TeamLogo teamKey={avatar} size={size} />;
+  }
+  return <span style={{ fontSize: size * 0.85 }}>{avatar}</span>;
+}
+
+// Number formatter: 1000 → "1,000"
+const fmt = (n) => n.toLocaleString("en-AU");
+
+// ── FRESH SEASON: clean slate for 2026 ──
+function generateFreshSeason() {
+  return {
+    users: PLAYER_NAMES.map((name, i) => ({
+      id: i + 1, username: name, password: DEFAULT_PASSWORD,
+      avatar: DEFAULT_AVATARS[i], points: 0,
+    })),
+    picks: {},
+    results: {},
+    weeklyResults: {},
+  };
+}
+
+// Team logo component with fallback
+// Inline SVG team shield badges — no external images needed
+function TeamLogo({ teamKey, size = 36 }) {
+  const team = NRL_TEAMS[teamKey];
+  if (!team) return null;
+  // Each team gets a unique mascot/icon path
+  const icons = {
+    BRO: "M16 7c-1.5 0-3 1.5-3 4 0 1.5.8 3 2 4.5L16 17l1-1.5c1.2-1.5 2-3 2-4.5 0-2.5-1.5-4-3-4zm-3 14l3 3 3-3", // horse
+    BUL: "M12 11a2.5 2.5 0 015 0c0 1.5-2.5 3.5-2.5 3.5S12 12.5 12 11zm-3 2c-.8 0-1.5.7-1.5 1.5S8.2 16 9 16s1.5-.7 1.5-1.5S9.8 13 9 13zm14 0c-.8 0-1.5.7-1.5 1.5S22.2 16 23 16s1.5-.7 1.5-1.5S23.8 13 23 13z", // bulldog face
+    COW: "M10 7l-3 4h2l-1 3h3v4h2l2-3 2 3h2v-4h3l-1-3h2l-3-4", // cowboy hat
+    DOL: "M8 17c0-5 3.5-9 8-9-.5 2-.5 4.5.5 6.5s.5 4.5-1.5 6c-2 1-5 0-7-3.5z", // dolphin curve
+    DRA: "M16 6l-4 5 2 1-3 4 5-2 1 3 2-4 4 1-3-4 2-1zm-7 12l3 2 4 1 4-1 3-2", // dragon flame
+    EEL: "M7 13c1.5-2 3.5-3.5 5.5-4v3c1-1.5 2.5-2.5 4-3v3c1-1 2-1.5 3-2l-1 5c-1 3-3 5-6 5s-5-2-6-5z", // eel
+    KNI: "M16 5l-5 4v3l-2 1 4 8h2l-1-5 3-2v-3l4-3zm-5 16h6", // sword
+    PAN: "M16 8c-3.5 0-6 2.5-6 6 0 2.5 1.5 4.5 3.5 5.5L16 17l2.5 2.5c2-1 3.5-3 3.5-5.5 0-3.5-2.5-6-6-6zm-2 5a1 1 0 110 2 1 1 0 010-2zm4 0a1 1 0 110 2 1 1 0 010-2z", // panther face
+    RAB: "M13 6v6l-4 4 2 2 1-1v5h2v-5h4v5h2v-5l1 1 2-2-4-4V6h-2v5l-1-1-1 1V6z", // rabbit ears
+    RAI: "M16 6l-7 9h5l-3 7 10-11h-5z", // lightning bolt
+    ROO: "M18 7c1.5-1.5 3.5-1 4 1l-1.5 4.5 2 3-3.5 1L16 21l-3-4.5-3.5-1 1.5-3L10 8c.5-2 2.5-3 4-1.5L16 9z", // rooster
+    SEA: "M6 16l5-4 2-5 3 1 3-1 2 5 5 4-4 1-3 4-3-2-3 2-3-4z", // eagle wings spread
+    SHA: "M16 5l4 6 3 4-4 2v5l-3 2-3-2v-5l-4-2 3-4z", // shark fin
+    STO: "M16 5l1.5 5h5l-4 3.5 1.5 5L16 15.5 12 18.5l1.5-5-4-3.5h5z", // star/lightning
+    TIT: "M11 7h10v4l-2.5 2.5V19c0 1-1 2-2.5 2s-2.5-1-2.5-2v-5.5L11 11z", // titan helmet
+    WAR: "M16 5l-7 7 3.5 1.5L11 18l5-2.5L21 18l-1.5-4.5L23 12z", // warrior star
+    TIG: "M11 8l5-2 5 2v5l-2 2.5h-6L11 13zm1 10h8l2 2H10z", // tiger stripes
+  };
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" style={{ display: "block", flexShrink: 0 }}>
+      <defs>
+        <linearGradient id={`g-${teamKey}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={team.bg} stopOpacity="1"/>
+          <stop offset="100%" stopColor={team.bg} stopOpacity="0.7"/>
+        </linearGradient>
+      </defs>
+      {/* Shield shape */}
+      <path d="M3 2h26v17c0 6.5-6.5 10.5-13 13C9.5 29.5 3 25.5 3 19z" fill={`url(#g-${teamKey})`} stroke={team.fg} strokeWidth="1.5"/>
+      {/* Mascot icon */}
+      <path d={icons[teamKey]} fill={team.fg} opacity="0.95" fillRule="evenodd"/>
+      {/* Team name */}
+      <text x="16" y="28" textAnchor="middle" fill={team.fg} fontSize="5.5" fontWeight="900" fontFamily="'Segoe UI',system-ui,sans-serif" letterSpacing="0.5">{team.short}</text>
+    </svg>
+  );
+}
+
+function NRLFantasyApp() {
+  const [appState, setAppState] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [view, setView] = useState("login");
+  const [loginForm, setLoginForm] = useState({ username: "", password: "" });
+  const [loginError, setLoginError] = useState("");
+  const [selectedRound, setSelectedRound] = useState(1);
+  const [saving, setSaving] = useState(false);
+
+  const getCurrentRound = (state) => {
+    if (!state?.weeklyResults) return 1;
+    for (let r = 1; r <= 27; r++) {
+      if (!state.weeklyResults[r]) return r;
+    }
+    return 27;
+  };
+
+  useEffect(() => { loadState(); }, []);
+
+  const loadState = () => {
+    try {
+      const result = localStorage.getItem(STORAGE_KEY);
+      if (result) {
+        const parsed = JSON.parse(result);
+        const updatedUsers = parsed.users.map((u, i) => ({
+          ...u,
+          username: PLAYER_NAMES[i] || u.username,
+        }));
+        parsed.users = updatedUsers;
+        setAppState(parsed);
+        setSelectedRound(getCurrentRound(parsed));
+      } else {
+        initFresh();
+      }
+    } catch (e) {
+      initFresh();
+    }
+    setLoading(false);
+  };
+
+  const initFresh = () => {
+    const fresh = generateFreshSeason();
+    setAppState(fresh);
+    setSelectedRound(getCurrentRound(fresh));
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh)); } catch(e) {}
+  };
+
+  const saveState = (newState) => {
+    setAppState(newState);
+    setSaving(true);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(newState)); } catch(e) {}
+    setSaving(false);
+  };
+
+  const handleLogin = () => {
+    if (!appState || !loginForm.username) return;
+    const user = appState.users.find(
+      (u) => u.username === loginForm.username && u.password === loginForm.password
+    );
+    if (user) {
+      setCurrentUser(user);
+      setView("dashboard");
+      setLoginError("");
+    } else {
+      setLoginError("Wrong password, mate!");
+    }
+  };
+
+  const handlePick = async (round, matchIndex, team) => {
+    const key = `${currentUser.id}-${round}`;
+    const newPicks = { ...appState.picks };
+    if (!newPicks[key]) newPicks[key] = {};
+    newPicks[key][matchIndex] = team;
+    await saveState({ ...appState, picks: newPicks });
+  };
+
+  const getUserPicks = (userId, round) => appState?.picks?.[`${userId}-${round}`] || {};
+
+  const handleSetResult = async (round, matchIndex, winner) => {
+    const newResults = { ...appState.results };
+    const key = `${round}`;
+    if (!newResults[key]) newResults[key] = {};
+    const existing = newResults[key][matchIndex];
+    const currentWinner = getWinner(existing);
+    if (currentWinner === winner) {
+      delete newResults[key][matchIndex];
+    } else {
+      const scores = getScores(existing) || [0, 0];
+      newResults[key][matchIndex] = { winner, scores };
+    }
+    await saveState({ ...appState, results: newResults });
+  };
+
+  const handleSetScore = async (round, matchIndex, homeScore, awayScore) => {
+    const newResults = { ...appState.results };
+    const key = `${round}`;
+    if (!newResults[key]) newResults[key] = {};
+    const existing = newResults[key][matchIndex] || {};
+    const winner = getWinner(existing);
+    newResults[key][matchIndex] = { winner, scores: [homeScore, awayScore] };
+    await saveState({ ...appState, results: newResults });
+  };
+
+  const getRoundResults = (round) => appState?.results?.[`${round}`] || {};
+
+  // Extract winner from result entry (supports both {winner, scores} and plain string)
+  const getWinner = (resultEntry) => {
+    if (!resultEntry) return null;
+    if (typeof resultEntry === "string") return resultEntry;
+    return resultEntry.winner || null;
+  };
+
+  // Extract scores [homeScore, awayScore] from result entry
+  const getScores = (resultEntry) => {
+    if (!resultEntry || typeof resultEntry === "string") return null;
+    return resultEntry.scores || null;
+  };
+
+  const calculateWeekScore = (userId, round) => {
+    const picks = getUserPicks(userId, round);
+    const results = getRoundResults(round);
+    let correct = 0;
+    (FIXTURES[round] || []).forEach((_, idx) => {
+      if (picks[idx] && results[idx] && picks[idx] === getWinner(results[idx])) correct++;
+    });
+    return correct;
+  };
+
+  const calculateRanking = (round) => {
+    if (!appState) return [];
+    const scores = appState.users.map((u) => ({
+      ...u, score: calculateWeekScore(u.id, round),
+      hasPicked: Object.keys(getUserPicks(u.id, round)).length > 0,
+    }));
+    scores.sort((a, b) => b.score - a.score);
+    return scores;
+  };
+
+  const finaliseRound = async (round) => {
+    const ranking = calculateRanking(round);
+    const newState = { ...appState };
+    const newWeeklyResults = { ...newState.weeklyResults };
+    const updatedUsers = newState.users.map((u) => {
+      const r = ranking.find((r) => r.id === u.id);
+      const pos = ranking.indexOf(r) + 1;
+      const pts = POINTS_MAP[pos] || 0;
+      return { ...u, points: u.points + pts };
+    });
+    newWeeklyResults[round] = ranking.map((r, i) => ({
+      userId: r.id, position: i + 1, score: r.score, points: POINTS_MAP[i + 1] || 0,
+    }));
+    newState.users = updatedUsers;
+    newState.weeklyResults = newWeeklyResults;
+    await saveState(newState);
+    setCurrentUser(updatedUsers.find((u) => u.id === currentUser.id));
+    // Auto-advance to the next unplayed round
+    const nextRound = getCurrentRound(newState);
+    setSelectedRound(nextRound);
+  };
+
+  const isRoundFinalised = (round) => !!appState?.weeklyResults?.[round];
+
+  const handleUpdateProfile = async (newPassword, newAvatar) => {
+    const updatedUsers = appState.users.map((u) =>
+      u.id === currentUser.id
+        ? { ...u, password: newPassword || u.password, avatar: newAvatar || u.avatar }
+        : u
+    );
+    const updated = updatedUsers.find((u) => u.id === currentUser.id);
+    setCurrentUser(updated);
+    await saveState({ ...appState, users: updatedUsers });
+  };
+
+  const overallLeaderboard = () => {
+    if (!appState) return [];
+    return [...appState.users].sort((a, b) => b.points - a.points);
+  };
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #1a3525 0%, #1a3525 50%, #0d2818 50%, #0d2818 100%)", color: "#fff", fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
+        <style>{animations}</style>
+        <div style={{ textAlign: "center" }}>
+          <svg width="70" height="78" viewBox="0 0 200 220" style={{ display: "inline-block", animation: "pulse 1.5s ease-in-out infinite" }}>
+            <path d="M16 8 L184 8 L184 132 Q184 182 100 214 Q16 182 16 132 Z" fill="#00DC00"/>
+            <path d="M28 100 L172 100 L172 128 Q172 172 100 200 Q28 172 28 128 Z" fill="#0d2818"/>
+            <path d="M28 100 L100 140 L172 100 L172 115 L100 155 L28 115 Z" fill="#00DC00"/>
+            <path d="M28 122 L100 162 L172 122 L172 137 L100 177 L28 137 Z" fill="#00DC00"/>
+            <clipPath id="lcShield"><path d="M16 8 L184 8 L184 132 Q184 182 100 214 Q16 182 16 132 Z"/></clipPath>
+            <path d="M28 144 L100 184 L172 144 L172 159 L100 199 L28 159 Z" fill="#00DC00" clipPath="url(#lcShield)"/>
+            <text x="100" y="80" textAnchor="middle" fill="#0d2818" fontSize="56" fontWeight="900" fontFamily="Arial Black, Impact, sans-serif" letterSpacing="4">NRL</text>
+          </svg>
+          <p style={{ fontSize: 18, opacity: 0.7, color: "#00DC00" }}>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── LOGIN ──
+  if (view === "login") {
+    // Randomise background to one of the 4 player team colour schemes
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0d2818", padding: 20, fontFamily: "'Segoe UI', system-ui, sans-serif", position: "relative", overflow: "hidden" }}>
+        <style>{animations}</style>
+        {/* NRL watermark pattern background */}
+        <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.04, pointerEvents: "none" }} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="nrlPattern" x="0" y="0" width="160" height="180" patternUnits="userSpaceOnUse" patternTransform="rotate(-15)">
+              {/* NRL Shield */}
+              <g transform="translate(40, 20) scale(0.5)">
+                <path d="M16 8 L184 8 L184 132 Q184 182 100 214 Q16 182 16 132 Z" fill="#fff"/>
+                <path d="M28 100 L172 100 L172 128 Q172 172 100 200 Q28 172 28 128 Z" fill="#0d2818"/>
+                <path d="M28 100 L100 140 L172 100 L172 115 L100 155 L28 115 Z" fill="#fff"/>
+                <path d="M28 122 L100 162 L172 122 L172 137 L100 177 L28 137 Z" fill="#fff"/>
+                <text x="100" y="80" textAnchor="middle" fill="#0d2818" fontSize="56" fontWeight="900" fontFamily="Arial Black, Impact, sans-serif" letterSpacing="4">NRL</text>
+              </g>
+              {/* Chevron accent */}
+              <g transform="translate(120, 120) scale(0.25)">
+                <path d="M0 0 L100 60 L200 0 L200 30 L100 90 L0 30 Z" fill="#fff"/>
+              </g>
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#nrlPattern)" />
+        </svg>
+        <div style={{ ...styles.loginCard, background: "rgba(13, 40, 24, 0.97)", border: "1px solid #2a4a35", position: "relative", overflow: "hidden", boxShadow: "0 0 30px rgba(0, 220, 0, 0.3), 0 0 60px rgba(0, 220, 0, 0.15), 0 0 100px rgba(0, 220, 0, 0.08)", zIndex: 1 }}>
+          {/* Giant fist watermark behind everything */}
+          {/* NRL Logo SVG — exact recreation */}
+          <div style={{ textAlign: "center", marginBottom: 12, position: "relative", zIndex: 1 }}>
+            <svg width="90" height="100" viewBox="0 0 200 220" style={{ display: "inline-block" }}>
+              {/* Shield shape */}
+              <path d="M16 8 L184 8 L184 132 Q184 182 100 214 Q16 182 16 132 Z" fill="#00DC00" stroke="#00DC00" strokeWidth="2"/>
+              {/* Inner dark area behind chevrons */}
+              <path d="M28 100 L172 100 L172 128 Q172 172 100 200 Q28 172 28 128 Z" fill="#0d2818"/>
+              {/* Chevron 1 (top) */}
+              <path d="M28 100 L100 140 L172 100 L172 115 L100 155 L28 115 Z" fill="#00DC00"/>
+              {/* Chevron 2 (middle) */}
+              <path d="M28 122 L100 162 L172 122 L172 137 L100 177 L28 137 Z" fill="#00DC00"/>
+              {/* Chevron 3 (bottom, clipped by shield) */}
+              <clipPath id="shieldClip">
+                <path d="M16 8 L184 8 L184 132 Q184 182 100 214 Q16 182 16 132 Z"/>
+              </clipPath>
+              <path d="M28 144 L100 184 L172 144 L172 159 L100 199 L28 159 Z" fill="#00DC00" clipPath="url(#shieldClip)"/>
+              {/* NRL text */}
+              <text x="100" y="80" textAnchor="middle" fill="#0d2818" fontSize="56" fontWeight="900" fontFamily="Arial Black, Impact, sans-serif" letterSpacing="4">NRL</text>
+            </svg>
+          </div>
+          <h1 style={{ ...styles.logoTitle, color: "#fff", fontSize: 28, textTransform: "uppercase", position: "relative", zIndex: 1, lineHeight: 1.1, marginBottom: 2 }}>Smash ya mates!</h1>
+          <p style={{ ...styles.logoSub, color: "#4a6a55", position: "relative", zIndex: 1, marginTop: 0 }}>an unofficial NRL product</p>
+          <div style={{ marginTop: 24 }}>
+            <label style={{ color: "#7a9a85", fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6 }}>Login ya mug:</label>
+            <div style={{ position: "relative", marginBottom: 12 }}>
+              <select
+                value={loginForm.username}
+                onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
+                style={{ ...styles.select, background: "#0a1f12", border: "1px solid #2a4a35" }}
+              >
+                <option value="">Who are ya?</option>
+                {PLAYER_NAMES.map((name) => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
+              <div style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#5a7a65" }}>▼</div>
+            </div>
+            <input
+              style={{ ...styles.input, background: "#0a1f12", border: "1px solid #2a4a35" }}
+              type="password"
+              placeholder="Password"
+              value={loginForm.password}
+              onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+              onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+            />
+            {loginError && <p style={{ color: "#ff6b6b", fontSize: 13, marginTop: 4, textAlign: "center" }}>{loginError}</p>}
+            <button style={{ ...styles.primaryBtn, background: "#00DC00", color: "#000" }} onClick={handleLogin}>
+              LET'S GET IT ON! 🔥
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── PROFILE ──
+  if (view === "profile") {
+    return <ProfileScreen user={currentUser} onSave={handleUpdateProfile} onBack={() => setView("dashboard")} />;
+  }
+
+  // ── ADMIN (set results) ──
+  if (view === "admin") {
+    const matches = FIXTURES[selectedRound] || [];
+    const results = getRoundResults(selectedRound);
+    const finalised = isRoundFinalised(selectedRound);
+    return (
+      <div style={styles.appContainer}>
+        <style>{animations}</style>
+        <Header user={currentUser} onProfile={() => setView("profile")} onLogout={() => { setCurrentUser(null); setView("login"); }} saving={saving} />
+        <RoundCountdown round={getCurrentRound(appState)} appState={appState} />
+        <div style={styles.content}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+            <button style={styles.backBtn} onClick={() => setView("dashboard")}>← Back</button>
+            <h2 style={styles.sectionTitle}>Set Results</h2>
+          </div>
+          <RoundSelector selected={selectedRound} onChange={setSelectedRound} appState={appState} />
+          {finalised && <div style={styles.infoBox}>✅ Round {selectedRound} is finalised!</div>}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+            {matches.map(([home, away], idx) => {
+              const winner = getWinner(results[idx]);
+              const scores = getScores(results[idx]);
+              const matchStatus = getMatchStatus(selectedRound, idx);
+              const isLive = matchStatus.status === "live";
+              const isLocked = matchStatus.locked && !finalised;
+              return (
+                <div key={idx} style={{
+                  ...styles.matchCard,
+                  border: isLive ? "2px solid #e74c3c" : styles.matchCard.border,
+                  background: isLive ? "rgba(231, 76, 60, 0.08)" : styles.matchCard.background,
+                  animation: isLive ? "pulse 2s ease-in-out infinite" : "none",
+                }}>
+                  {/* LIVE badge */}
+                  {isLive && (
+                    <div style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", zIndex: 2, background: "#e74c3c", color: "#fff", fontSize: 10, fontWeight: 900, padding: "2px 10px", borderRadius: 8, letterSpacing: 1.5, animation: "pulse 1s ease-in-out infinite" }}>
+                      🔴 LIVE
+                    </div>
+                  )}
+                  {/* Locked badge */}
+                  {isLocked && !isLive && (
+                    <div style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", zIndex: 2, background: "#4a6a55", color: "#ccc", fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 8 }}>
+                      🔒 LOCKED
+                    </div>
+                  )}
+                  <button onClick={() => !finalised && handleSetResult(selectedRound, idx, home)}
+                    style={{ ...styles.teamBtn, ...(winner === home ? styles.teamBtnWin : {}), flex: 1 }}>
+                    <TeamLogo teamKey={home} size={34} />
+                    <span style={{ fontWeight: 700, fontSize: 12 }}>{NRL_TEAMS[home].name}</span>
+                    <span style={{ fontSize: 8, color: "#7a9a85", fontWeight: 700, letterSpacing: 1, marginTop: 1 }}>HOME</span>
+                  </button>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                    <div style={styles.vsLabel}>VS</div>
+                    {winner && !finalised && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
+                        <input type="number" min="0" max="99" style={{ width: 32, padding: "2px 4px", borderRadius: 6, border: "1px solid #2a4a35", background: "#0a1f12", color: "#fff", textAlign: "center", fontSize: 12 }}
+                          value={scores?.[0] ?? ""} onChange={(e) => handleSetScore(selectedRound, idx, parseInt(e.target.value)||0, scores?.[1]||0)} />
+                        <span style={{ color: "#4a6a55", fontSize: 10 }}>-</span>
+                        <input type="number" min="0" max="99" style={{ width: 32, padding: "2px 4px", borderRadius: 6, border: "1px solid #2a4a35", background: "#0a1f12", color: "#fff", textAlign: "center", fontSize: 12 }}
+                          value={scores?.[1] ?? ""} onChange={(e) => handleSetScore(selectedRound, idx, scores?.[0]||0, parseInt(e.target.value)||0)} />
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={() => !finalised && handleSetResult(selectedRound, idx, away)}
+                    style={{ ...styles.teamBtn, ...(winner === away ? styles.teamBtnWin : {}), flex: 1 }}>
+                    <TeamLogo teamKey={away} size={34} />
+                    <span style={{ fontWeight: 700, fontSize: 12 }}>{NRL_TEAMS[away].name}</span>
+                    <span style={{ fontSize: 8, color: "#7a9a85", fontWeight: 700, letterSpacing: 1, marginTop: 1 }}>AWAY</span>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          {!finalised && Object.keys(results).length > 0 && (
+            <button style={{ ...styles.primaryBtn, marginTop: 16, background: "linear-gradient(135deg, #e74c3c, #c0392b)" }}
+              onClick={() => finaliseRound(selectedRound)}>
+              🏆 FINALISE ROUND {selectedRound}
+            </button>
+          )}
+        </div>
+        <NavBar active="admin" onNav={setView} />
+      </div>
+    );
+  }
+
+  // ── PICKS ──
+  if (view === "picks") {
+    const matches = FIXTURES[selectedRound] || [];
+    const myPicks = getUserPicks(currentUser.id, selectedRound);
+    const finalised = isRoundFinalised(selectedRound);
+    const results = getRoundResults(selectedRound);
+    return (
+      <div style={styles.appContainer}>
+        <style>{animations}</style>
+        <Header user={currentUser} onProfile={() => setView("profile")} onLogout={() => { setCurrentUser(null); setView("login"); }} saving={saving} />
+        <RoundCountdown round={getCurrentRound(appState)} appState={appState} />
+        <div style={styles.content}>
+          <h2 style={styles.sectionTitle}>🎯 Make Your Picks</h2>
+          <RoundSelector selected={selectedRound} onChange={setSelectedRound} appState={appState} />
+          {finalised && <div style={styles.infoBox}>✅ Score: {calculateWeekScore(currentUser.id, selectedRound)}/{matches.length} correct</div>}
+          <p style={{ color: "#7a9a85", fontSize: 12, marginBottom: 12, textAlign: "center" }}>Tap the team you think will win</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {matches.map(([home, away], idx) => {
+              const pick = myPicks[idx];
+              const result = results[idx];
+              const winner = getWinner(result);
+              const scores = getScores(result);
+              const isCorrect = finalised && pick && winner && pick === winner;
+              const isWrong = finalised && pick && winner && pick !== winner;
+              const matchStatus = getMatchStatus(selectedRound, idx);
+              const isLive = matchStatus.status === "live";
+              const isLocked = matchStatus.locked && !finalised;
+              const kickoffStr = formatKickoff(matchStatus.kickoff);
+              return (
+                <div key={idx} style={{
+                  ...styles.matchCard,
+                  border: isLive ? "2px solid #e74c3c" : isCorrect ? "2px solid #2ecc71" : isWrong ? "2px solid #e74c3c" : isLocked ? "2px solid #4a6a55" : styles.matchCard.border,
+                  background: isLive ? "rgba(231, 76, 60, 0.08)" : styles.matchCard.background,
+                  animation: isLive ? "pulse 2s ease-in-out infinite" : "none",
+                }}>
+                  {/* LIVE badge */}
+                  {isLive && (
+                    <div style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50)", zIndex: 2, background: "#e74c3c", color: "#fff", fontSize: 10, fontWeight: 900, padding: "2px 10px", borderRadius: 8, letterSpacing: 1.5, animation: "pulse 1s ease-in-out infinite" }}>
+                      🔴 LIVE
+                    </div>
+                  )}
+                  {/* Locked badge */}
+                  {isLocked && !isLive && (
+                    <div style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", zIndex: 2, background: "#4a6a55", color: "#ccc", fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 8 }}>
+                      🔒 LOCKED
+                    </div>
+                  )}
+                  <button onClick={() => !finalised && !isLocked && handlePick(selectedRound, idx, home)}
+                    style={{ ...styles.teamBtn, ...(pick === home ? (isCorrect ? styles.teamBtnCorrect : isWrong ? styles.teamBtnWrong : styles.teamBtnSelected) : {}), flex: 1, opacity: isLocked && !pick ? 0.5 : 1 }}>
+                    <TeamLogo teamKey={home} size={34} />
+                    <span style={{ fontWeight: 700, fontSize: 12 }}>{NRL_TEAMS[home].name}</span>
+                    <span style={{ fontSize: 8, color: "#7a9a85", fontWeight: 700, letterSpacing: 1, marginTop: 1 }}>HOME</span>
+                    {finalised && scores && <span style={{ fontSize: 16, fontWeight: 900, color: winner === home ? "#2ecc71" : "#e74c3c", marginTop: 2 }}>{scores[0]}</span>}
+                  </button>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                    <div style={styles.vsLabel}>{finalised && scores ? `${scores[0]} - ${scores[1]}` : "VS"}</div>
+                    {!finalised && kickoffStr && (
+                      <div style={{ fontSize: 9, color: isLive ? "#e74c3c" : "#4a6a55", fontWeight: 600, textAlign: "center", lineHeight: 1.2, marginTop: 2 }}>
+                        {isLive ? "IN PLAY" : kickoffStr}
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={() => !finalised && !isLocked && handlePick(selectedRound, idx, away)}
+                    style={{ ...styles.teamBtn, ...(pick === away ? (isCorrect ? styles.teamBtnCorrect : isWrong ? styles.teamBtnWrong : styles.teamBtnSelected) : {}), flex: 1, opacity: isLocked && !pick ? 0.5 : 1 }}>
+                    <TeamLogo teamKey={away} size={34} />
+                    <span style={{ fontWeight: 700, fontSize: 12 }}>{NRL_TEAMS[away].name}</span>
+                    <span style={{ fontSize: 8, color: "#7a9a85", fontWeight: 700, letterSpacing: 1, marginTop: 1 }}>AWAY</span>
+                    {finalised && scores && <span style={{ fontSize: 16, fontWeight: 900, color: winner === away ? "#2ecc71" : "#e74c3c", marginTop: 2 }}>{scores[1]}</span>}
+                  </button>
+                  {finalised && winner && (
+                    <div style={{ position: "absolute", top: -8, right: -4, fontSize: 18 }}>
+                      {isCorrect ? "✅" : isWrong ? "❌" : ""}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <NavBar active="picks" onNav={setView} />
+      </div>
+    );
+  }
+
+  // ── LEADERBOARD ──
+  if (view === "leaderboard") {
+    const leaders = overallLeaderboard();
+    const medals = ["🥇", "🥈", "🥉", "💀"];
+    return (
+      <div style={styles.appContainer}>
+        <style>{animations}</style>
+        <Header user={currentUser} onProfile={() => setView("profile")} onLogout={() => { setCurrentUser(null); setView("login"); }} saving={saving} />
+        <RoundCountdown round={getCurrentRound(appState)} appState={appState} />
+        <div style={styles.content}>
+          <h2 style={styles.sectionTitle}>🏆 Leaderboard</h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
+            {leaders.map((u, i) => {
+              // Get last 5 finalised rounds
+              const finalisedRounds = Object.keys(appState.weeklyResults || {}).map(Number).sort((a, b) => a - b);
+              const last5 = finalisedRounds.slice(-5);
+              return (
+              <div key={u.id} style={{
+                ...styles.leaderCard,
+                border: u.id === currentUser.id ? "2px solid #00DC00" : "1px solid #2a4a35",
+                background: i === 0 ? "linear-gradient(135deg, #183524 0%, #1a3525 100%)" : "#122e1e",
+                flexWrap: "wrap",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
+                  <div style={{ fontSize: 28, marginRight: 12 }}>{medals[i]}</div>
+                  <div style={{ fontSize: 28, marginRight: 12 }}><AvatarDisplay avatar={u.avatar} size={32} /></div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 800, color: "#fff", fontSize: 15 }}>{u.username}</div>
+                    <div style={{ color: "#7a9a85", fontSize: 12, marginTop: 2 }}>
+                      {fmt(u.points)} pts
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 22, fontWeight: 900, color: i === 0 ? "#00DC00" : "#fff" }}>{fmt(u.points)}</div>
+                    <div style={{ fontSize: 10, color: "#4a6a55" }}>POINTS</div>
+                  </div>
+                </div>
+                {last5.length > 0 && (
+                  <div style={{ display: "flex", gap: 6, marginTop: 8, width: "100%", justifyContent: "flex-end" }}>
+                    {last5.map((round) => {
+                      const wr = appState.weeklyResults[round];
+                      const entry = wr?.find((r) => r.userId === u.id);
+                      const pos = entry?.position;
+                      const posColors = { 1: "#00DC00", 2: "#95a5a6", 3: "#cd7f32", 4: "#e74c3c" };
+                      const posLabels = { 1: "1st", 2: "2nd", 3: "3rd", 4: "4th" };
+                      return (
+                        <div key={round} style={{ textAlign: "center", minWidth: 36 }}>
+                          <div style={{ fontSize: 9, color: "#4a6a55", fontWeight: 600 }}>R{round}</div>
+                          <div style={{ fontSize: 11, fontWeight: 800, color: posColors[pos] || "#4a6a55", marginTop: 1 }}>{posLabels[pos] || "-"}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              );
+            })}
+          </div>
+          <h3 style={{ color: "#9ab5a0", fontSize: 14, fontWeight: 700, marginTop: 24, marginBottom: 8 }}>📊 Weekly Results</h3>
+          {Object.keys(appState.weeklyResults || {}).length === 0 ? (
+            <p style={{ color: "#4a6a55", fontSize: 13, textAlign: "center" }}>No rounds finalised yet</p>
+          ) : (
+            Object.entries(appState.weeklyResults)
+              .sort(([a], [b]) => Number(b) - Number(a))
+              .map(([round, res]) => (
+                <div key={round} style={{ background: "#122e1e", borderRadius: 12, padding: 12, marginBottom: 8, border: "1px solid #2a4a35" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                    <div style={{ fontWeight: 800, color: "#9ab5a0", fontSize: 12 }}>ROUND {round}</div>
+                    {res[0] && (() => {
+                      const winner = appState.users.find((u) => u.id === res[0].userId);
+                      return winner ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ fontSize: 12 }}>👑</span>
+                          <AvatarDisplay avatar={winner.avatar} size={16} />
+                          <span style={{ color: "#00DC00", fontWeight: 700, fontSize: 11 }}>{winner.username} wins!</span>
+                        </div>
+                      ) : null;
+                    })()}
+                  </div>
+                  {res.map((r) => {
+                    const user = appState.users.find((u) => u.id === r.userId);
+                    return (
+                      <div key={r.userId} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", borderBottom: "1px solid #183524" }}>
+                        <span>{medals[r.position - 1]}</span>
+                        <span style={{ fontSize: 16 }}><AvatarDisplay avatar={user?.avatar} size={20} /></span>
+                        <span style={{ flex: 1, color: "#ccc", fontSize: 13 }}>{user?.username}</span>
+                        <span style={{ color: "#7a9a85", fontSize: 12 }}>{r.score} correct</span>
+                        <span style={{ color: "#00DC00", fontWeight: 700, fontSize: 13, minWidth: 40, textAlign: "right" }}>+{r.points} pts</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))
+          )}
+        </div>
+        <NavBar active="leaderboard" onNav={setView} />
+      </div>
+    );
+  }
+
+  // ── DASHBOARD ──
+  const leaders = overallLeaderboard();
+  const medals = ["🥇", "🥈", "🥉", "💀"];
+
+  return (
+    <div style={styles.appContainer}>
+      <style>{animations}</style>
+      <Header user={currentUser} onProfile={() => setView("profile")} onLogout={() => { setCurrentUser(null); setView("login"); }} saving={saving} />
+        <RoundCountdown round={getCurrentRound(appState)} appState={appState} />
+      <div style={styles.content}>
+        <div style={{ ...styles.balanceCard, padding: 0, overflow: "hidden" }}>
+          {/* Top row: avatar + greeting + points */}
+          <div style={{ display: "flex", alignItems: "center", padding: "16px 16px 12px" }}>
+            <div style={{ marginRight: 14 }}>
+              <AvatarDisplay avatar={currentUser.avatar} size={48} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 16, color: "#fff", fontWeight: 900 }}>Hey {currentUser.username}! 👊</div>
+              <div style={{ fontSize: 12, color: "#7a9a85", marginTop: 2 }}>
+                Rank #{leaders.findIndex((l) => l.id === currentUser.id) + 1} of {leaders.length}
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 32, fontWeight: 900, color: "#00DC00", lineHeight: 1 }}>
+                {fmt(currentUser.points)}
+              </div>
+              <div style={{ fontSize: 10, color: "#7a9a85", fontWeight: 600, letterSpacing: 1, marginTop: 2 }}>POINTS</div>
+            </div>
+          </div>
+          {/* Team news strip */}
+          {NRL_TEAMS[currentUser.avatar] && NRL_TEAMS[currentUser.avatar].url && (
+            <a href={NRL_TEAMS[currentUser.avatar].url}
+              target="_blank" rel="noopener noreferrer"
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 16px", background: "rgba(0,220,0,0.06)", borderTop: "1px solid #2a4a35", textDecoration: "none", fontSize: 12, color: "#00DC00", fontWeight: 600 }}>
+              <span>{NRL_TEAMS[currentUser.avatar].name} team news →</span>
+            </a>
+          )}
+        </div>
+
+        {/* Round News Banner */}
+        <RoundNewsBanner currentRound={getCurrentRound(appState)} appState={appState} />
+
+        <h3 style={{ color: "#9ab5a0", fontSize: 13, fontWeight: 700, marginBottom: 8, letterSpacing: 0.5 }}>STANDINGS</h3>
+        <StandingsChart appState={appState} currentUser={currentUser} />
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <button style={styles.actionCard} onClick={() => setView("picks")}>
+            <span style={{ fontSize: 28 }}>🎯</span>
+            <span style={{ fontWeight: 700, color: "#fff", fontSize: 14 }}>Make Picks</span>
+            <span style={{ fontSize: 11, color: "#7a9a85" }}>Choose winners</span>
+          </button>
+          <button style={styles.actionCard} onClick={() => setView("leaderboard")}>
+            <span style={{ fontSize: 28 }}>🏆</span>
+            <span style={{ fontWeight: 700, color: "#fff", fontSize: 14 }}>Leaderboard</span>
+            <span style={{ fontSize: 11, color: "#7a9a85" }}>Full standings</span>
+          </button>
+          <button style={styles.actionCard} onClick={() => setView("admin")}>
+            <span style={{ fontSize: 28 }}>⚙️</span>
+            <span style={{ fontWeight: 700, color: "#fff", fontSize: 14 }}>Set Results</span>
+            <span style={{ fontSize: 11, color: "#7a9a85" }}>Enter winners</span>
+          </button>
+          <button style={styles.actionCard} onClick={() => setView("profile")}>
+            <span style={{ fontSize: 28 }}>👤</span>
+            <span style={{ fontWeight: 700, color: "#fff", fontSize: 14 }}>Profile</span>
+            <span style={{ fontSize: 11, color: "#7a9a85" }}>Edit your info</span>
+          </button>
+        </div>
+
+        <div style={{ background: "#122e1e", borderRadius: 14, padding: 14, marginTop: 16, border: "1px solid #2a4a35" }}>
+          <div style={{ fontWeight: 800, color: "#9ab5a0", fontSize: 12, marginBottom: 6 }}>📅 2026 NRL SEASON</div>
+          <div style={{ color: "#7a9a85", fontSize: 12, lineHeight: 1.6 }}>
+            Round 1 kicks off <strong style={{ color: "#ccc" }}>March 1</strong> in Las Vegas! 🎰<br />
+            27 rounds of footy. Pick the winners. Stack your points. Smash ya mates! 💀
+          </div>
+        </div>
+      </div>
+      <NavBar active="dashboard" onNav={setView} />
+    </div>
+  );
+}
+
+// ── Round-to-month mapping for 2026 NRL season ──
+// R1: Mar 1, R2-3: Mar, R4-5: Mar/Apr, R6-8: Apr, R9-11: May, R12-13: May/Jun
+// R14-15: Jun, R16-17: Jun, R18-19: Jul, R20-21: Jul, R22-23: Aug, R24-25: Aug, R26-27: Sep
+const ROUND_MONTHS = {
+  1:"Mar",2:"Mar",3:"Mar",4:"Mar",5:"Apr",6:"Apr",7:"Apr",8:"Apr",
+  9:"May",10:"May",11:"May",12:"May",13:"Jun",14:"Jun",15:"Jun",
+  16:"Jun",17:"Jun",18:"Jul",19:"Jul",20:"Jul",21:"Jul",
+  22:"Aug",23:"Aug",24:"Aug",25:"Aug",26:"Sep",27:"Sep",
+};
+const MONTH_ORDER = ["Mar","Apr","May","Jun","Jul","Aug","Sep"];
+
+const PLAYER_COLORS = {
+  1: "#00DC00", // Princess Sparkey - green
+  2: "#e74c3c", // D.I. Banks - red
+  3: "#FFD700", // Mez - yellow/gold
+  4: "#3498db", // Nick - blue
+};
+
+// ── ROUND NEWS BANNER ──
+// Dynamic — pulls actual fixtures and links to live NRL sources
+function RoundNewsBanner({ currentRound, appState }) {
+  const prevRound = currentRound - 1;
+  const prevWinner = prevRound > 0 && appState?.weeklyResults?.[prevRound]
+    ? (() => {
+        const wr = appState.weeklyResults[prevRound];
+        const w = appState.users.find((u) => u.id === wr[0]?.userId);
+        return w ? `${w.username} won Round ${prevRound}! 👑` : null;
+      })()
+    : null;
+
+  // Build real fixture lines for this round
+  const matches = FIXTURES[currentRound] || [];
+  const matchCount = matches.length;
+  const playerTeams = ["TIG", "DRA", "SEA", "BUL"];
+  const featuredMatches = matches
+    .filter(([h, a]) => playerTeams.includes(h) || playerTeams.includes(a))
+    .slice(0, 2)
+    .map(([h, a]) => `${NRL_TEAMS[h]?.name || h} vs ${NRL_TEAMS[a]?.name || a}`);
+
+  const nrlDrawUrl = `https://www.nrl.com/draw/?round=${currentRound}&season=2026`;
+  const nrlNewsUrl = "https://www.nrl.com/news/";
+
+  return (
+    <div style={{
+      background: "linear-gradient(135deg, #122e1e, #0d2818)",
+      borderRadius: 14, padding: "12px 14px", marginBottom: 14,
+      border: "2px solid #00DC00",
+    }}>
+      <div style={{ fontWeight: 900, color: "#fff", fontSize: 14, marginBottom: 6 }}>🏉 ROUND {currentRound}</div>
+      {prevWinner && (
+        <div style={{ color: "#00DC00", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>{prevWinner}</div>
+      )}
+      <div style={{ color: "#9ab5a0", fontSize: 12, lineHeight: 1.5 }}>
+        {matchCount} games this round
+      </div>
+      {featuredMatches.map((m, i) => (
+        <div key={i} style={{ color: "#ccc", fontSize: 12, lineHeight: 1.5, fontWeight: 600 }}>⚡ {m}</div>
+      ))}
+      <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
+        <a href={nrlDrawUrl} target="_blank" rel="noopener noreferrer"
+          style={{ fontSize: 11, color: "#00DC00", fontWeight: 700, textDecoration: "none", padding: "4px 10px", border: "1px solid #00DC00", borderRadius: 6 }}>
+          📋 Full Draw →
+        </a>
+        <a href={nrlNewsUrl} target="_blank" rel="noopener noreferrer"
+          style={{ fontSize: 11, color: "#00DC00", fontWeight: 700, textDecoration: "none", padding: "4px 10px", border: "1px solid #00DC00", borderRadius: 6 }}>
+          📰 NRL News →
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function StandingsChart({ appState, currentUser }) {
+  if (!appState) return null;
+
+  const finalisedRounds = Object.keys(appState.weeklyResults || {})
+    .map(Number)
+    .sort((a, b) => a - b);
+
+  if (finalisedRounds.length === 0) {
+    return (
+      <div style={{ background: "#122e1e", borderRadius: 14, padding: 20, marginBottom: 20, border: "1px solid #2a4a35", textAlign: "center" }}>
+        <p style={{ color: "#4a6a55", fontSize: 13 }}>Chart will appear once rounds are finalised</p>
+      </div>
+    );
+  }
+
+  // Build cumulative points per month
+  const cumulativeByRound = {};
+  const runningTotals = {};
+  appState.users.forEach(u => { runningTotals[u.id] = 0; });
+
+  finalisedRounds.forEach(round => {
+    const weekRes = appState.weeklyResults[round];
+    weekRes.forEach(r => { runningTotals[r.userId] += r.points; });
+    cumulativeByRound[round] = { ...runningTotals };
+  });
+
+  // Group into months — use the LAST round of each month for that month's data point
+  // Also always start with a "Start" point at 0
+  const monthData = [{ month: "Start" }];
+  appState.users.forEach(u => { monthData[0][u.username] = 0; });
+
+  // Find which months have finalised rounds
+  const lastRoundPerMonth = {};
+  finalisedRounds.forEach(round => {
+    const m = ROUND_MONTHS[round];
+    if (!lastRoundPerMonth[m] || round > lastRoundPerMonth[m]) {
+      lastRoundPerMonth[m] = round;
+    }
+  });
+
+  MONTH_ORDER.forEach(month => {
+    if (lastRoundPerMonth[month]) {
+      const round = lastRoundPerMonth[month];
+      const point = { month };
+      appState.users.forEach(u => {
+        point[u.username] = cumulativeByRound[round][u.id];
+      });
+      monthData.push(point);
+    }
+  });
+
+  // Custom tooltip
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (!active || !payload) return null;
+    return (
+      <div style={{ background: "#fff", border: "1px solid #ddd", borderRadius: 10, padding: "8px 12px", fontSize: 12, boxShadow: "0 2px 8px rgba(0,0,0,0.3)" }}>
+        <div style={{ fontWeight: 700, color: "#333", marginBottom: 4 }}>{label}</div>
+        {payload.sort((a, b) => b.value - a.value).map((p, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 0" }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: p.color }} />
+            <span style={{ color: "#333", flex: 1 }}>{p.name}</span>
+            <span style={{ color: p.color, fontWeight: 700 }}>{p.value} pts</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ background: "#122e1e", borderRadius: 14, padding: "14px 8px 8px 0", marginBottom: 20, border: "1px solid #2a4a35" }}>
+      <div style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 8, flexWrap: "wrap", paddingLeft: 8 }}>
+        {appState.users
+          .slice()
+          .sort((a, b) => b.points - a.points)
+          .map((u, i) => (
+          <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: PLAYER_COLORS[u.id] }} />
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+              <span style={{ color: u.id === currentUser.id ? "#fff" : "#888", fontWeight: u.id === currentUser.id ? 700 : 400 }}>
+                {u.username}
+              </span>
+              <span style={{ color: "#4a6a55", fontSize: 9, fontWeight: 600 }}>
+                {["1st","2nd","3rd","4th"][i]}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <ResponsiveContainer width="100%" height={180}>
+        <LineChart data={monthData} margin={{ top: 4, right: 12, bottom: 0, left: -12 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#2a4a35" />
+          <XAxis
+            dataKey="month"
+            tick={{ fill: "#4a6a55", fontSize: 11 }}
+            axisLine={{ stroke: "#2a4a35" }}
+            tickLine={false}
+          />
+          <YAxis
+            tick={{ fill: "#4a6a55", fontSize: 10 }}
+            axisLine={false}
+            tickLine={false}
+            width={35}
+          />
+          <Tooltip content={<CustomTooltip />} />
+          {appState.users.map(u => (
+            <Line
+              key={u.id}
+              type="monotone"
+              dataKey={u.username}
+              stroke={PLAYER_COLORS[u.id]}
+              strokeWidth={u.id === currentUser.id ? 3 : 2}
+              dot={{ r: u.id === currentUser.id ? 4 : 3, fill: PLAYER_COLORS[u.id], strokeWidth: 0 }}
+              activeDot={{ r: 6, fill: PLAYER_COLORS[u.id], strokeWidth: 0 }}
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// ── COMPONENTS ──
+function Header({ user, onProfile, onLogout, saving }) {
+  return (
+    <div style={styles.header}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span>
+          <svg width="26" height="29" viewBox="0 0 200 220" style={{ display: "block" }}>
+            <path d="M16 8 L184 8 L184 132 Q184 182 100 214 Q16 182 16 132 Z" fill="#fff"/>
+            <path d="M28 100 L172 100 L172 128 Q172 172 100 200 Q28 172 28 128 Z" fill="#0d2818"/>
+            <path d="M28 100 L100 140 L172 100 L172 115 L100 155 L28 115 Z" fill="#fff"/>
+            <path d="M28 122 L100 162 L172 122 L172 137 L100 177 L28 137 Z" fill="#fff"/>
+            <text x="100" y="80" textAnchor="middle" fill="#0d2818" fontSize="60" fontWeight="900" fontFamily="Arial Black, Impact, sans-serif" letterSpacing="4">NRL</text>
+          </svg>
+        </span>
+        <div>
+          <div style={{ fontWeight: 900, color: "#fff", fontSize: 15, letterSpacing: 0.5 }}>NRL 2026</div>
+          <div style={{ fontSize: 10, color: "#4a6a55" }}>Smash ya mates!{saving ? " · Saving..." : ""}</div>
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <button onClick={onProfile} style={{ background: "none", border: "none", cursor: "pointer" }}><AvatarDisplay avatar={user.avatar} size={28} /></button>
+        <button onClick={onLogout} style={{ background: "none", border: "none", cursor: "pointer", color: "#4a6a55", fontSize: 12 }}>Logout</button>
+      </div>
+    </div>
+  );
+}
+
+function NavBar({ active, onNav }) {
+  const items = [
+    { key: "dashboard", icon: "🏠", label: "Home" },
+    { key: "picks", icon: "🎯", label: "Picks" },
+    { key: "leaderboard", icon: "🏆", label: "Board" },
+    { key: "admin", icon: "⚙️", label: "Results" },
+  ];
+  return (
+    <div style={styles.navBar}>
+      {items.map((item) => (
+        <button key={item.key} onClick={() => onNav(item.key)}
+          style={{ ...styles.navItem, color: active === item.key ? "#00DC00" : "#4a6a55" }}>
+          <span style={{ fontSize: 20 }}>{item.icon}</span>
+          <span style={{ fontSize: 10, fontWeight: 600, marginTop: 2 }}>{item.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function RoundSelector({ selected, onChange, appState }) {
+  const currentRound = (() => {
+    if (!appState?.weeklyResults) return 1;
+    for (let r = 1; r <= 27; r++) {
+      if (!appState.weeklyResults[r]) return r;
+    }
+    return 27;
+  })();
+
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", marginBottom: 8 }}>
+        <button onClick={() => onChange(Math.max(1, selected - 1))} style={styles.roundArrow} disabled={selected <= 1}>◀</button>
+        <span style={{ color: "#fff", fontWeight: 900, fontSize: 18, minWidth: 120, textAlign: "center" }}>Round {selected}</span>
+        <button onClick={() => onChange(Math.min(27, selected + 1))} style={styles.roundArrow} disabled={selected >= 27}>▶</button>
+      </div>
+      <div style={{ display: "flex", gap: 3, flexWrap: "wrap", justifyContent: "center" }}>
+        {Array.from({ length: 27 }, (_, i) => i + 1).map((r) => {
+          const isFinalised = !!appState?.weeklyResults?.[r];
+          const isCurrent = r === currentRound;
+          const isSelected = r === selected;
+          return (
+            <button key={r} onClick={() => onChange(r)}
+              style={{
+                width: 28, height: 28, borderRadius: 8,
+                border: isCurrent && !isSelected ? "2px solid #00DC00" : "none",
+                background: isSelected ? "#00DC00" : isFinalised ? "#1a3a1a" : "#183524",
+                color: isSelected ? "#0a1f12" : isFinalised ? "#2ecc71" : "#4a6a55",
+                fontWeight: 700, fontSize: 11, cursor: "pointer",
+              }}>
+              {isFinalised && !isSelected ? "✓" : r}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── HERITAGE LOGO COMPONENTS for player teams ──
+function BulldogsHeritage({ size = 80 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100">
+      {/* Shield */}
+      <path d="M10 8h80v52c0 18-20 32-40 38C30 92 10 78 10 60z" fill="#C0C0C0" stroke="#2a4a35" strokeWidth="2"/>
+      <path d="M14 12h72v48c0 16-18 28-36 34C32 88 14 76 14 56z" fill="#0054A4"/>
+      {/* St Andrew's cross */}
+      <path d="M14 12L86 60M86 12L14 60" stroke="#fff" strokeWidth="8" opacity="0.9"/>
+      {/* Center diamond for bulldog */}
+      <ellipse cx="50" cy="40" rx="22" ry="18" fill="#fff"/>
+      {/* Bulldog face */}
+      <ellipse cx="50" cy="42" rx="16" ry="13" fill="#C8B090"/>
+      <ellipse cx="50" cy="48" rx="12" ry="8" fill="#B8A080"/>
+      {/* Eyes */}
+      <ellipse cx="43" cy="38" rx="4" ry="3.5" fill="#fff"/>
+      <ellipse cx="57" cy="38" rx="4" ry="3.5" fill="#fff"/>
+      <circle cx="44" cy="38" r="2" fill="#222"/>
+      <circle cx="58" cy="38" r="2" fill="#222"/>
+      {/* Nose */}
+      <ellipse cx="50" cy="44" rx="5" ry="3" fill="#2a4a35"/>
+      {/* Mouth/jowls */}
+      <path d="M42 48q8 6 16 0" fill="none" stroke="#4a6a55" strokeWidth="1.5"/>
+      {/* Brow wrinkles */}
+      <path d="M38 34q5-3 12 0M50 34q5-3 12 0" fill="none" stroke="#8B7355" strokeWidth="1"/>
+      {/* BULLDOGS text */}
+      <text x="50" y="78" textAnchor="middle" fill="#fff" fontSize="10" fontWeight="900" fontFamily="Arial">BULLDOGS</text>
+      {/* 1935 */}
+      <text x="35" y="88" textAnchor="middle" fill="#C0C0C0" fontSize="6" fontWeight="700">19</text>
+      <text x="65" y="88" textAnchor="middle" fill="#C0C0C0" fontSize="6" fontWeight="700">35</text>
+    </svg>
+  );
+}
+
+function SeaEaglesHeritage({ size = 80 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100">
+      {/* Circle */}
+      <circle cx="50" cy="50" r="46" fill="#6B0031" stroke="#8B1045" strokeWidth="2"/>
+      <circle cx="50" cy="50" r="38" fill="#7B1040" stroke="#fff" strokeWidth="1"/>
+      {/* Eagle body */}
+      <path d="M50 28c-3 0-6 2-8 5l-18 12c-4 3-6 2-8 0 3 5 8 6 12 4l10-6c-2 4-3 9-2 14l2 10c1 3 0 5-2 6 4 0 7-2 7-6l-1-12c3 4 7 6 8 6s5-2 8-6l-1 12c0 4 3 6 7 6-2-1-3-3-2-6l2-10c1-5 0-10-2-14l10 6c4 2 9 1 12-4-2 2-4 3-8 0L58 33c-2-3-5-5-8-5z" fill="#fff" stroke="#6B0031" strokeWidth="0.5"/>
+      {/* Eagle head */}
+      <circle cx="50" cy="32" r="7" fill="#fff"/>
+      <path d="M48 30l-5 3 5-1z" fill="#FFD700"/>
+      {/* Eye */}
+      <circle cx="52" cy="30" r="1.5" fill="#2a4a35"/>
+      {/* MANLY WARRINGAH */}
+      <path d="M18 22a38 38 0 0164 0" fill="none" id="seaTop"/>
+      <text fontSize="5" fill="#D4A0B0" fontWeight="700" fontFamily="Arial">
+        <textPath href="#seaTop" startOffset="18%">MANLY WARRINGAH</textPath>
+      </text>
+      {/* SEA EAGLES */}
+      <text x="50" y="86" textAnchor="middle" fill="#fff" fontSize="9" fontWeight="900" fontFamily="Arial">SEA EAGLES</text>
+    </svg>
+  );
+}
+
+function DragonsHeritage({ size = 80 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100">
+      {/* Shield */}
+      <path d="M15 5h70v55c0 15-15 28-35 37C30 88 15 75 15 60z" fill="#fff" stroke="#999" strokeWidth="1.5"/>
+      {/* Red lower half */}
+      <path d="M15 50v10c0 15 15 28 35 37 20-9 35-22 35-37V50z" fill="#E31837"/>
+      {/* ST.GEORGE text */}
+      <text x="50" y="18" textAnchor="middle" fill="#E31837" fontSize="8" fontWeight="900" fontFamily="Arial">ST.GEORGE</text>
+      {/* Dragon and George */}
+      <g transform="translate(25,22) scale(0.55)">
+        {/* Horse + rider silhouette */}
+        <path d="M45 55l15-20 8 5-3 8 12-3-2 10-8 2 3 12H58l-2-10-8 3z" fill="#000"/>
+        {/* Rider upper body */}
+        <path d="M55 25l5-8 3 2-2 6 8-4 2 5-8 6z" fill="#000"/>
+        {/* Lance */}
+        <line x1="58" y1="20" x2="30" y2="45" stroke="#000" strokeWidth="2"/>
+        {/* Dragon body */}
+        <path d="M25 50c-5-3-10 0-12 5 0 3 2 5 5 4l8-2c2 3 0 7-3 8 4 1 8-2 8-6l-2-5z" fill="#E31837"/>
+        {/* Dragon wing */}
+        <path d="M20 45l-8-10 5 2-3-8 6 5 2-6 2 8 5-3z" fill="#E31837" opacity="0.8"/>
+      </g>
+      {/* ILLAWARRA text */}
+      <text x="50" y="90" textAnchor="middle" fill="#fff" fontSize="8" fontWeight="900" fontFamily="Arial">ILLAWARRA</text>
+    </svg>
+  );
+}
+
+function TigersHeritage({ size = 80 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100">
+      {/* Circle background */}
+      <circle cx="50" cy="50" r="46" fill="#000" stroke="#F37021" strokeWidth="3"/>
+      {/* Tiger face base */}
+      <ellipse cx="50" cy="48" rx="30" ry="28" fill="#F37021"/>
+      {/* White face markings */}
+      <ellipse cx="50" cy="55" rx="20" ry="16" fill="#fff"/>
+      {/* Black stripes */}
+      <path d="M30 35c5-8 12-12 20-12" stroke="#000" strokeWidth="3" fill="none"/>
+      <path d="M70 35c-5-8-12-12-20-12" stroke="#000" strokeWidth="3" fill="none"/>
+      <path d="M28 42c6-4 10-5 14-4" stroke="#000" strokeWidth="2.5" fill="none"/>
+      <path d="M72 42c-6-4-10-5-14-4" stroke="#000" strokeWidth="2.5" fill="none"/>
+      <path d="M32 50c5-2 8-2 10 0" stroke="#000" strokeWidth="2" fill="none"/>
+      <path d="M68 50c-5-2-8-2-10 0" stroke="#000" strokeWidth="2" fill="none"/>
+      {/* Eyes */}
+      <ellipse cx="40" cy="42" rx="5" ry="4" fill="#fff"/>
+      <ellipse cx="60" cy="42" rx="5" ry="4" fill="#fff"/>
+      <ellipse cx="41" cy="42" rx="3" ry="3" fill="#7AB648"/>
+      <ellipse cx="61" cy="42" rx="3" ry="3" fill="#7AB648"/>
+      <circle cx="41" cy="42" r="1.5" fill="#000"/>
+      <circle cx="61" cy="42" r="1.5" fill="#000"/>
+      {/* Nose */}
+      <path d="M46 52l4-3 4 3z" fill="#F37021"/>
+      {/* Open mouth */}
+      <ellipse cx="50" cy="60" rx="10" ry="7" fill="#CC0000"/>
+      <path d="M40 58q10 3 20 0" fill="none" stroke="#fff" strokeWidth="1"/>
+      {/* Fangs */}
+      <path d="M43 58l-2 5 3-3z" fill="#fff"/>
+      <path d="M57 58l2 5-3-3z" fill="#fff"/>
+      {/* Tongue */}
+      <ellipse cx="50" cy="64" rx="4" ry="3" fill="#E31837"/>
+      {/* BALMAIN */}
+      <path d="M14 18a42 42 0 0172 0" fill="none" id="tigTop"/>
+      <text fontSize="7" fill="#F37021" fontWeight="900" fontFamily="Arial">
+        <textPath href="#tigTop" startOffset="25%">BALMAIN</textPath>
+      </text>
+      {/* TIGERS */}
+      <text x="50" y="92" textAnchor="middle" fill="#F37021" fontSize="9" fontWeight="900" fontFamily="Arial">TIGERS</text>
+    </svg>
+  );
+}
+
+// Map of heritage logos for profile selection
+const HERITAGE_LOGOS = {
+  TIG: TigersHeritage,
+  DRA: DragonsHeritage,
+  SEA: SeaEaglesHeritage,
+  BUL: BulldogsHeritage,
+};
+
+function ProfileScreen({ user, onSave, onBack }) {
+  const [password, setPassword] = useState("");
+  const [avatar, setAvatar] = useState(user.avatar);
+  const [saved, setSaved] = useState(false);
+  const profileTeams = ["TIG", "DRA", "SEA", "BUL"];
+
+  return (
+    <div style={styles.appContainer}>
+      <style>{animations}</style>
+      <div style={{ ...styles.header, justifyContent: "flex-start", gap: 12 }}>
+        <button style={styles.backBtn} onClick={onBack}>← Back</button>
+        <h2 style={{ color: "#fff", fontSize: 16, fontWeight: 800, margin: 0 }}>Edit Profile</h2>
+      </div>
+      <div style={styles.content}>
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <div style={{ marginBottom: 4 }}>
+            {HERITAGE_LOGOS[avatar] ? (() => { const Logo = HERITAGE_LOGOS[avatar]; return <Logo size={90} />; })() : <AvatarDisplay avatar={avatar} size={72} />}
+          </div>
+          <div style={{ color: "#00DC00", fontWeight: 800, fontSize: 18, marginBottom: 16 }}>{user.username}</div>
+          <p style={{ color: "#7a9a85", fontSize: 12, marginBottom: 12 }}>Pick your team</p>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+            {profileTeams.map((key) => {
+              const Logo = HERITAGE_LOGOS[key];
+              return (
+                <button key={key} onClick={() => setAvatar(key)}
+                  style={{ width: 80, height: 80, borderRadius: 14, border: avatar === key ? "3px solid #00DC00" : "2px solid #2a4a35", background: avatar === key ? "#1a3525" : "#122e1e", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 4 }}>
+                  {Logo ? <Logo size={65} /> : <TeamLogo teamKey={key} size={50} />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <label style={{ color: "#7a9a85", fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>New Password</label>
+        <input style={styles.input} type="password" placeholder="Leave blank to keep current" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <button style={styles.primaryBtn} onClick={() => { onSave(password || null, avatar); setSaved(true); setTimeout(() => setSaved(false), 2000); }}>
+          {saved ? "✅ Saved!" : "💾 Save Changes"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── ANIMATIONS ──
+const animations = `
+  @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; padding: 0; }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-thumb { background: #2a4a35; border-radius: 4px; }
+  input:focus, select:focus { outline: none; border-color: #00DC00 !important; }
+  button:active { transform: scale(0.97); }
+`;
+
+// ── STYLES ──
+const styles = {
+  loginContainer: {
+    minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+    background: "linear-gradient(135deg, #1a3525 0%, #1a3525 50%, #0d2818 50%, #0d2818 100%)", padding: 20,
+    fontFamily: "'Segoe UI', system-ui, sans-serif",
+  },
+  loginCard: {
+    width: "100%", maxWidth: 340, padding: 32, background: "rgba(13, 40, 24, 0.97)",
+    borderRadius: 20, border: "1px solid #2a4a35", backdropFilter: "blur(20px)",
+  },
+  logoTitle: { textAlign: "center", color: "#7a9a85", fontSize: 48, fontWeight: 900, letterSpacing: 3, margin: 0 },
+  logoSub: { textAlign: "center", color: "#5a7a65", fontSize: 13, margin: "4px 0 0", letterSpacing: 1 },
+  input: {
+    width: "100%", padding: "14px 16px", borderRadius: 12, border: "1px solid #2a4a35",
+    background: "#0a1f12", color: "#fff", fontSize: 15, marginBottom: 10,
+    fontFamily: "'Segoe UI', system-ui, sans-serif",
+  },
+  select: {
+    width: "100%", padding: "14px 16px", borderRadius: 12, border: "1px solid #2a4a35",
+    background: "#0a1f12", color: "#fff", fontSize: 15, appearance: "none",
+    fontFamily: "'Segoe UI', system-ui, sans-serif", cursor: "pointer",
+  },
+  primaryBtn: {
+    width: "100%", padding: "14px", borderRadius: 12, border: "none",
+    background: "#00DC00", color: "#000",
+    fontSize: 16, fontWeight: 800, cursor: "pointer", letterSpacing: 0.5, marginTop: 8,
+    fontFamily: "'Segoe UI', system-ui, sans-serif",
+  },
+  appContainer: {
+    minHeight: "100vh", background: "linear-gradient(180deg, #0d2818 0%, #0a1f12 100%)",
+    fontFamily: "'Segoe UI', system-ui, sans-serif", maxWidth: 480, margin: "0 auto",
+    position: "relative", paddingBottom: 70,
+  },
+  header: {
+    display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px",
+    background: "rgba(10, 30, 18, 0.97)", borderBottom: "1px solid #2a4a35",
+    position: "sticky", top: 0, zIndex: 10, backdropFilter: "blur(10px)",
+  },
+  content: { padding: "16px", animation: "fadeIn 0.3s ease" },
+  balanceCard: {
+    background: "linear-gradient(135deg, #122e1e 0%, #183524 100%)", borderRadius: 16,
+    padding: "20px", marginBottom: 20, border: "1px solid #2a4a35", textAlign: "center",
+  },
+  sectionTitle: { color: "#fff", fontSize: 18, fontWeight: 900, margin: "0 0 12px", textAlign: "center" },
+  matchCard: {
+    display: "flex", alignItems: "center", gap: 4, background: "#122e1e", borderRadius: 12,
+    padding: "8px", border: "1px solid #2a4a35", position: "relative",
+  },
+  teamBtn: {
+    display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+    padding: "10px 6px", borderRadius: 10, border: "2px solid transparent",
+    background: "#0e2416", cursor: "pointer", transition: "all 0.15s ease",
+    color: "#ccc", fontFamily: "'Segoe UI', system-ui, sans-serif",
+  },
+  teamBtnSelected: { border: "2px solid #00DC00", background: "rgba(0, 220, 0, 0.1)" },
+  teamBtnCorrect: { border: "2px solid #2ecc71", background: "rgba(46, 204, 113, 0.15)" },
+  teamBtnWrong: { border: "2px solid #e74c3c", background: "rgba(231, 76, 60, 0.15)" },
+  teamBtnWin: { border: "2px solid #2ecc71", background: "rgba(46, 204, 113, 0.2)" },
+  vsLabel: { color: "#4a6a55", fontSize: 11, fontWeight: 700, padding: "0 4px" },
+  leaderCard: { display: "flex", alignItems: "center", borderRadius: 14, padding: "14px" },
+  actionCard: {
+    display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+    padding: "18px 12px", borderRadius: 14, border: "1px solid #2a4a35",
+    background: "#122e1e", cursor: "pointer", fontFamily: "'Segoe UI', system-ui, sans-serif",
+  },
+  navBar: {
+    position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%",
+    maxWidth: 480, display: "flex", justifyContent: "space-around",
+    background: "rgba(10, 30, 18, 0.98)", borderTop: "1px solid #2a4a35",
+    padding: "6px 0 10px", backdropFilter: "blur(10px)", zIndex: 20,
+  },
+  navItem: {
+    display: "flex", flexDirection: "column", alignItems: "center", background: "none",
+    border: "none", cursor: "pointer", padding: "4px 12px",
+    fontFamily: "'Segoe UI', system-ui, sans-serif",
+  },
+  backBtn: {
+    background: "none", border: "1px solid #2a4a35", color: "#7a9a85", padding: "6px 12px",
+    borderRadius: 8, fontSize: 12, cursor: "pointer", fontFamily: "'Segoe UI', system-ui, sans-serif",
+  },
+  roundArrow: {
+    background: "#183524", border: "1px solid #2a4a35", color: "#00DC00", width: 36, height: 36,
+    borderRadius: 10, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center",
+    justifyContent: "center", fontFamily: "'Segoe UI', system-ui, sans-serif",
+  },
+  infoBox: {
+    background: "rgba(0, 220, 0, 0.08)", border: "1px solid #00DC00", borderRadius: 10,
+    padding: "10px 14px", color: "#00DC00", fontSize: 13, textAlign: "center", marginBottom: 12,
+  },
+};
+
+    // Mount the app
+    try {
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(React.createElement(NRLFantasyApp));
+      console.log('App mounted successfully');
+    } catch(e) {
+      console.error('Mount error:', e);
+      document.getElementById("root").innerHTML = '<div style="color:red;padding:20px;font-family:monospace"><h2>App Error</h2><pre>' + e.message + '\n' + e.stack + '</pre></div>';
+    }
+  </script>
+</body>
+</html>
