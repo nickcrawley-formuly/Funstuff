@@ -368,31 +368,6 @@ function NRLFantasyApp() {
 
   const getUserPicks = (userId, round) => appState?.picks?.[`${userId}-${round}`] || {};
 
-  const handleSetResult = async (round, matchIndex, winner) => {
-    const newResults = { ...appState.results };
-    const key = `${round}`;
-    if (!newResults[key]) newResults[key] = {};
-    const existing = newResults[key][matchIndex];
-    const currentWinner = getWinner(existing);
-    if (currentWinner === winner) {
-      delete newResults[key][matchIndex];
-    } else {
-      const scores = getScores(existing) || [0, 0];
-      newResults[key][matchIndex] = { winner, scores };
-    }
-    await saveState({ ...appState, results: newResults });
-  };
-
-  const handleSetScore = async (round, matchIndex, homeScore, awayScore) => {
-    const newResults = { ...appState.results };
-    const key = `${round}`;
-    if (!newResults[key]) newResults[key] = {};
-    const existing = newResults[key][matchIndex] || {};
-    const winner = getWinner(existing);
-    newResults[key][matchIndex] = { winner, scores: [homeScore, awayScore] };
-    await saveState({ ...appState, results: newResults });
-  };
-
   const getRoundResults = (round) => appState?.results?.[`${round}`] || {};
 
   // Extract winner from result entry (supports both {winner, scores} and plain string)
@@ -426,28 +401,6 @@ function NRLFantasyApp() {
     }));
     scores.sort((a, b) => b.score - a.score);
     return scores;
-  };
-
-  const finaliseRound = async (round) => {
-    const ranking = calculateRanking(round);
-    const newState = { ...appState };
-    const newWeeklyResults = { ...newState.weeklyResults };
-    const updatedUsers = newState.users.map((u) => {
-      const r = ranking.find((r) => r.id === u.id);
-      const pos = ranking.indexOf(r) + 1;
-      const pts = POINTS_MAP[pos] || 0;
-      return { ...u, points: u.points + pts };
-    });
-    newWeeklyResults[round] = ranking.map((r, i) => ({
-      userId: r.id, position: i + 1, score: r.score, points: POINTS_MAP[i + 1] || 0,
-    }));
-    newState.users = updatedUsers;
-    newState.weeklyResults = newWeeklyResults;
-    await saveState(newState);
-    setCurrentUser(updatedUsers.find((u) => u.id === currentUser.id));
-    // Auto-advance to the next unplayed round
-    const nextRound = getCurrentRound(newState);
-    setSelectedRound(nextRound);
   };
 
   const isRoundFinalised = (round) => !!appState?.weeklyResults?.[round];
@@ -589,10 +542,11 @@ function NRLFantasyApp() {
         <div style={styles.content}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
             <button style={styles.backBtn} onClick={() => setView("dashboard")}>← Back</button>
-            <h2 style={styles.sectionTitle}>Set Results</h2>
+            <h2 style={styles.sectionTitle}>Results</h2>
           </div>
           <RoundSelector selected={selectedRound} onChange={setSelectedRound} appState={appState} />
-          {finalised && <div style={styles.infoBox}>✅ Round {selectedRound} is finalised!</div>}
+          {finalised && <div style={styles.infoBox}>✅ Round {selectedRound} finalised</div>}
+          {!finalised && <p style={{ color: "#7a9a85", fontSize: 12, textAlign: "center", marginBottom: 12 }}>Results will appear once matches are played</p>}
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
             {matches.map(([home, away], idx) => {
               const winner = getWinner(results[idx]);
@@ -600,10 +554,11 @@ function NRLFantasyApp() {
               const matchStatus = getMatchStatus(selectedRound, idx);
               const isLive = matchStatus.status === "live";
               const isLocked = matchStatus.locked && !finalised;
+              const kickoffStr = formatKickoff(matchStatus.kickoff);
               return (
                 <div key={idx} style={{
                   ...styles.matchCard,
-                  border: isLive ? "2px solid #e74c3c" : styles.matchCard.border,
+                  border: isLive ? "2px solid #e74c3c" : winner ? "1px solid #2a4a35" : styles.matchCard.border,
                   background: isLive ? "rgba(231, 76, 60, 0.08)" : styles.matchCard.background,
                   animation: isLive ? "pulse 2s ease-in-out infinite" : "none",
                 }}>
@@ -613,46 +568,31 @@ function NRLFantasyApp() {
                       🔴 LIVE
                     </div>
                   )}
-                  {/* Locked badge */}
-                  {isLocked && !isLive && (
-                    <div style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", zIndex: 2, background: "#4a6a55", color: "#ccc", fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 8 }}>
-                      🔒 LOCKED
+                  {/* Locked/upcoming badge */}
+                  {!winner && !isLive && kickoffStr && (
+                    <div style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", zIndex: 2, background: "#183524", color: "#7a9a85", fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 8 }}>
+                      {kickoffStr}
                     </div>
                   )}
-                  <button onClick={() => !finalised && handleSetResult(selectedRound, idx, home)}
-                    style={{ ...styles.teamBtn, ...(winner === home ? styles.teamBtnWin : {}), flex: 1 }}>
+                  <div style={{ ...styles.teamBtn, ...(winner === home ? styles.teamBtnWin : {}), flex: 1, cursor: "default" }}>
                     <TeamLogo teamKey={home} size={34} />
                     <span style={{ fontWeight: 700, fontSize: 12 }}>{NRL_TEAMS[home].name}</span>
                     <span style={{ fontSize: 8, color: "#7a9a85", fontWeight: 700, letterSpacing: 1, marginTop: 1 }}>HOME</span>
-                  </button>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                    <div style={styles.vsLabel}>VS</div>
-                    {winner && !finalised && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
-                        <input type="number" min="0" max="99" style={{ width: 32, padding: "2px 4px", borderRadius: 6, border: "1px solid #2a4a35", background: "#0a1f12", color: "#fff", textAlign: "center", fontSize: 12 }}
-                          value={scores?.[0] ?? ""} onChange={(e) => handleSetScore(selectedRound, idx, parseInt(e.target.value)||0, scores?.[1]||0)} />
-                        <span style={{ color: "#4a6a55", fontSize: 10 }}>-</span>
-                        <input type="number" min="0" max="99" style={{ width: 32, padding: "2px 4px", borderRadius: 6, border: "1px solid #2a4a35", background: "#0a1f12", color: "#fff", textAlign: "center", fontSize: 12 }}
-                          value={scores?.[1] ?? ""} onChange={(e) => handleSetScore(selectedRound, idx, scores?.[0]||0, parseInt(e.target.value)||0)} />
-                      </div>
-                    )}
+                    {scores && <span style={{ fontSize: 16, fontWeight: 900, color: winner === home ? "#2ecc71" : "#e74c3c", marginTop: 2 }}>{scores[0]}</span>}
                   </div>
-                  <button onClick={() => !finalised && handleSetResult(selectedRound, idx, away)}
-                    style={{ ...styles.teamBtn, ...(winner === away ? styles.teamBtnWin : {}), flex: 1 }}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                    <div style={styles.vsLabel}>{scores ? `${scores[0]} - ${scores[1]}` : "VS"}</div>
+                  </div>
+                  <div style={{ ...styles.teamBtn, ...(winner === away ? styles.teamBtnWin : {}), flex: 1, cursor: "default" }}>
                     <TeamLogo teamKey={away} size={34} />
                     <span style={{ fontWeight: 700, fontSize: 12 }}>{NRL_TEAMS[away].name}</span>
                     <span style={{ fontSize: 8, color: "#7a9a85", fontWeight: 700, letterSpacing: 1, marginTop: 1 }}>AWAY</span>
-                  </button>
+                    {scores && <span style={{ fontSize: 16, fontWeight: 900, color: winner === away ? "#2ecc71" : "#e74c3c", marginTop: 2 }}>{scores[1]}</span>}
+                  </div>
                 </div>
               );
             })}
           </div>
-          {!finalised && Object.keys(results).length > 0 && (
-            <button style={{ ...styles.primaryBtn, marginTop: 16, background: "linear-gradient(135deg, #e74c3c, #c0392b)" }}
-              onClick={() => finaliseRound(selectedRound)}>
-              🏆 FINALISE ROUND {selectedRound}
-            </button>
-          )}
         </div>
         <NavBar active="admin" onNav={setView} />
       </div>
@@ -900,9 +840,9 @@ function NRLFantasyApp() {
             <span style={{ fontSize: 11, color: "#7a9a85" }}>Full standings</span>
           </button>
           <button style={styles.actionCard} onClick={() => setView("admin")}>
-            <span style={{ fontSize: 28 }}>⚙️</span>
-            <span style={{ fontWeight: 700, color: "#fff", fontSize: 14 }}>Set Results</span>
-            <span style={{ fontSize: 11, color: "#7a9a85" }}>Enter winners</span>
+            <span style={{ fontSize: 28 }}>📋</span>
+            <span style={{ fontWeight: 700, color: "#fff", fontSize: 14 }}>Results</span>
+            <span style={{ fontSize: 11, color: "#7a9a85" }}>Match scores</span>
           </button>
           <button style={styles.actionCard} onClick={() => setView("profile")}>
             <span style={{ fontSize: 28 }}>👤</span>
@@ -1149,7 +1089,7 @@ function NavBar({ active, onNav }) {
     { key: "dashboard", icon: "🏠", label: "Home" },
     { key: "picks", icon: "🎯", label: "Picks" },
     { key: "leaderboard", icon: "🏆", label: "Board" },
-    { key: "admin", icon: "⚙️", label: "Results" },
+    { key: "admin", icon: "📋", label: "Results" },
   ];
   return (
     <div style={styles.navBar}>
